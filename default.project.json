@@ -1,0 +1,29 @@
+{
+  "name": "trojectile",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedStorage": {
+      "Packages": {
+        "$className": "Folder",
+        "$path": "Packages",
+
+        "trojectile": {
+          "$path": "src"
+        }
+      },
+
+      "$path": "testing/replicated"
+    },
+
+    "ServerScriptService": {
+      "$path": "testing/server"
+    },
+
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "$path": "testing/client"
+      }
+    }
+  }
+}
