@@ -10,13 +10,7 @@ local RunService = game:GetService("RunService")
 
 --> Includes
 
-local Constants = require(script.Constants)
 
-if RunService:IsServer() then
-	local Communicator = Instance.new("UnreliableRemoteEvent")
-	Communicator.Name = Constants.COMMUNICATOR_NAME
-	Communicator.Parent = script
-end
 
 if RunService:IsServer() then
 	return require(script.TrojectileServer)

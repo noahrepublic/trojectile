@@ -20,7 +20,6 @@ local serverNetwork = require(script.Parent.network.server)
 
 --> Variables
 
-local Communicator: RemoteEvent = script.Parent:FindFirstChild(Constants.COMMUNICATOR_NAME)
 
 local TrojectileServer = {
 	_cooldown = 0,
@@ -41,8 +40,6 @@ local function onRequest(
 		origin: Vector3,
 		direction: Vector3,
 		projectileType: string,
-		p: boolean,
-	
 	}
 )
 	assert(tConstants.projectileData(projectileData))
@@ -62,10 +59,11 @@ local function onRequest(
 
 	warn(playerPing, playerPing*1000)
 
+	timestamp -= playerPing
 
 	local projectile = {
 		player = player,
-		origin = projectileData.origin + (if projectileData.p then (projectileData.direction * -(player.Character.HumanoidRootPart.Velocity.Magnitude * (math.clamp(playerPing * 2, 0, 1)))) else Vector3.zero),
+		origin = projectileData.origin,
 		direction = projectileData.direction,
 		projectileType = projectileData.projectileType,
 
@@ -74,22 +72,12 @@ local function onRequest(
 
 	projectiles:add(projectile)
 
-	Communicator:FireAllClients({ -- TODO: serdes
-		timestamp,
-		projectileData.origin,
-		projectileData.direction,
-		projectileData.projectileType,
-		player,
-	})
-
-	-- wait for zap update to fix client stuff
-
-	serverNetwork.Trojectile_SERVER.FireAll({
+	serverNetwork.Trojectile_SERVER.FireExcept(player, {
 		t = timestamp,
 		origin = projectileData.origin,
 		direction = projectileData.direction,
 		projectileType = projectileData.projectileType,
-		player = player,
+		sender = player,
 	})
 end
 
@@ -161,7 +149,7 @@ RunService.Heartbeat:Connect(function(dt)
 		local method = if projectileType ~= nil and (projectileType.method == "Spherecast" or projectileType.method == "Blockcast") then projectileType.method else "Raycast" 
 
 		local raycastParams = RaycastParams.new()
-		raycastParams.FilterDescendantsInstances = { projectile.player.Character:GetDescendants() }
+		raycastParams.FilterDescendantsInstances = { projectile.player.Character }
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 		
 		local raycastResult 

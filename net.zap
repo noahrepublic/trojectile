@@ -8,8 +8,6 @@ type clientProjectileData = struct {
     origin: Vector3,
     direction: Vector3,
     projectileType: string,
-
-    p: boolean,
 }
 
 type serverProjectileData = struct {
@@ -18,7 +16,7 @@ type serverProjectileData = struct {
     direction: Vector3,
     projectileType: string,
 
-    player: Instance (Player),
+    sender: Instance (Player),
 }
 
 event Trojectile_CLIENT = {

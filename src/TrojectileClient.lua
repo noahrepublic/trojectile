@@ -32,7 +32,6 @@ local Trojectile = {
 	_projectiles = Set.new(),
 }
 
-local Communicator: RemoteEvent = script.Parent:WaitForChild(Constants.COMMUNICATOR_NAME)
 
 local Position = ecr.component() :: Vector3
 local Direction = ecr.component() :: Vector3
@@ -41,14 +40,12 @@ local projectiles = ecr.registry()
 --> Functions
 
 local function onRequest(projectileData)
-	local projectileConfig = Trojectile._projectileConfigs[projectileData[4]]
+	local projectileConfig = Trojectile._projectileConfigs[projectileData.projectileType] -- string indexes are ok here. zap does not serialize struct keys
 
-	print("got")
 	if projectileConfig == nil then
 		return
 	end
-	print("yes")
-
+	
 	--[[
         timestamp,
 		compensatedPosition,
@@ -58,19 +55,18 @@ local function onRequest(projectileData)
 
 	local id = projectiles:create()
 
-	print(id)
 	local projectile = {
-		t = projectileData[1] - player:GetNetworkPing(),
-		origin = projectileData[2],
-		direction = projectileData[3],
-		projectileType = projectileData[4],
-		player = projectileData[5],
+		t = projectileData.t - player:GetNetworkPing(),
+		origin = projectileData.origin,
+		direction = projectileData.direction,
+		projectileType = projectileData.projectileType,
+		player = projectileData.sender,
 
 		id = id,
 	}
 
-	projectiles:set(id, Position, projectileData[2])
-	projectiles:set(id, Direction, projectileData[3])
+	projectiles:set(id, Position, projectileData.origin)
+	projectiles:set(id, Direction, projectileData.direction)
 	Trojectile._projectiles:add(projectile)
 end
 
@@ -80,17 +76,15 @@ function Trojectile:Fire(projectileData: {
 	origin: Vector3,
 	direction: Vector3,
 	projectileType: string,
-	p: boolean,
 })
-	projectileData.p = projectileData.p or false
 	assert(tConstants.projectileData(projectileData))
 
 	onRequest({
-		game.Workspace:GetServerTimeNow() + player:GetNetworkPing(),
-		projectileData.origin,
-		projectileData.direction,
-		projectileData.projectileType,
-		player,
+		t = game.Workspace:GetServerTimeNow() + player:GetNetworkPing(),
+		origin = projectileData.origin,
+		direction = projectileData.direction,
+		projectileType = projectileData.projectileType,
+		sender = player,
 	})
 
 	-- Communicator:FireServer(projectileData) -- serDes
@@ -150,13 +144,7 @@ end
 -- 	onRequest(projectileData)
 -- end)
 
-clientNetwork.Trojectile_SERVER.SetCallback(function(projectileData)
-	if projectileData[5] == player then
-		return
-	end
-
-	onRequest(projectileData)
-end)
+clientNetwork.Trojectile_SERVER.SetCallback(onRequest)
 
 local totalDt = 0
 

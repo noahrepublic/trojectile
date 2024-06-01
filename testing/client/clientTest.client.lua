@@ -63,7 +63,7 @@ ContextActionService:BindAction("Fire", function(_, inputState)
 
 		local projectileType = "testProjectile"
 
-		Trojectile:Fire({ origin = origin, direction = direction, projectileType = projectileType, p = false })
+		Trojectile:Fire({ origin = origin, direction = direction, projectileType = projectileType })
 	end
 end, false, Enum.KeyCode.F)
 
