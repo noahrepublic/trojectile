@@ -16,8 +16,6 @@ return {
 		type = {
 			method = "Blockcast",
 			size = size
-		}
-
-
+		},
 	},
 }

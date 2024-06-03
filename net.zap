@@ -3,20 +3,19 @@ opt server_output = "./src/network/server.luau"
 
 opt write_checks = false
 
-
 type clientProjectileData = struct {
     origin: Vector3,
     direction: Vector3,
-    projectileType: string,
+    projectileType: u8,
 }
 
 type serverProjectileData = struct {
     t: u32,
     origin: Vector3,
     direction: Vector3,
-    projectileType: string,
+    projectileType: u8,
 
-    sender: Instance (Player),
+    sender: u8,
 }
 
 event Trojectile_CLIENT = {

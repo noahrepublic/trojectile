@@ -138,7 +138,7 @@ end)
 export type clientProjectileData = ({
 	origin: (Vector3),
 	direction: (Vector3),
-	projectileType: (string),
+	projectileType: (number),
 })
 function types.write_clientProjectileData(value: clientProjectileData)
 	alloc(4)
@@ -153,27 +153,23 @@ function types.write_clientProjectileData(value: clientProjectileData)
 	buffer.writef32(outgoing_buff, outgoing_apos, value.direction.Y)
 	alloc(4)
 	buffer.writef32(outgoing_buff, outgoing_apos, value.direction.Z)
-	local len = #value.projectileType
-	alloc(2)
-	buffer.writeu16(outgoing_buff, outgoing_apos, len)
-	alloc(len)
-	buffer.writestring(outgoing_buff, outgoing_apos, value.projectileType, len)
+	alloc(1)
+	buffer.writeu8(outgoing_buff, outgoing_apos, value.projectileType)
 end
 function types.read_clientProjectileData()
 	local value;
 	value = {}
 	value.origin = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
 	value.direction = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
-	local len = buffer.readu16(incoming_buff, read(2))
-	value.projectileType = buffer.readstring(incoming_buff, read(len), len)
+	value.projectileType = buffer.readu8(incoming_buff, read(1))
 	return value
 end
 export type serverProjectileData = ({
 	t: (number),
 	origin: (Vector3),
 	direction: (Vector3),
-	projectileType: (string),
-	sender: (Player),
+	projectileType: (number),
+	sender: (number),
 })
 function types.write_serverProjectileData(value: serverProjectileData)
 	alloc(4)
@@ -190,12 +186,10 @@ function types.write_serverProjectileData(value: serverProjectileData)
 	buffer.writef32(outgoing_buff, outgoing_apos, value.direction.Y)
 	alloc(4)
 	buffer.writef32(outgoing_buff, outgoing_apos, value.direction.Z)
-	local len = #value.projectileType
-	alloc(2)
-	buffer.writeu16(outgoing_buff, outgoing_apos, len)
-	alloc(len)
-	buffer.writestring(outgoing_buff, outgoing_apos, value.projectileType, len)
-	table.insert(outgoing_inst, value.sender)
+	alloc(1)
+	buffer.writeu8(outgoing_buff, outgoing_apos, value.projectileType)
+	alloc(1)
+	buffer.writeu8(outgoing_buff, outgoing_apos, value.sender)
 end
 function types.read_serverProjectileData()
 	local value;
@@ -203,12 +197,8 @@ function types.read_serverProjectileData()
 	value.t = buffer.readu32(incoming_buff, read(4))
 	value.origin = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
 	value.direction = Vector3.new(buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)), buffer.readf32(incoming_buff, read(4)))
-	local len = buffer.readu16(incoming_buff, read(2))
-	value.projectileType = buffer.readstring(incoming_buff, read(len), len)
-	incoming_ipos = incoming_ipos + 1
-	value.sender = incoming_inst[incoming_ipos]
-	assert(value.sender ~= nil)
-	assert(value.sender:IsA("Player"))
+	value.projectileType = buffer.readu8(incoming_buff, read(1))
+	value.sender = buffer.readu8(incoming_buff, read(1))
 	return value
 end
 

@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 --> Includes
 
 local Constants = require(script.Parent.Constants)
+local Identifiers = require(script.Parent.Identifiers)
 local Set = require(script.Parent.Set)
 local tConstants = require(script.Parent.tConstants)
 
@@ -32,20 +33,24 @@ local Trojectile = {
 	_projectiles = Set.new(),
 }
 
-
 local Position = ecr.component() :: Vector3
 local Direction = ecr.component() :: Vector3
 local projectiles = ecr.registry()
 
+local PlayerSerDes = Identifiers.new(Constants.PLAYER_ID_STORAGE_NAME)
+local ProjectileTypeSerDes = Identifiers.new(Constants.PROJECTILE_ID_STORAGE_NAME)
+
 --> Functions
 
 local function onRequest(projectileData)
+	projectileData.projectileType = ProjectileTypeSerDes:deserialize(projectileData.projectileType)
+
 	local projectileConfig = Trojectile._projectileConfigs[projectileData.projectileType] -- string indexes are ok here. zap does not serialize struct keys
 
 	if projectileConfig == nil then
 		return
 	end
-	
+
 	--[[
         timestamp,
 		compensatedPosition,
@@ -55,12 +60,15 @@ local function onRequest(projectileData)
 
 	local id = projectiles:create()
 
+	local sendingPlayer = PlayerSerDes:deserialize(projectileData.sender)
+
+	print(projectileData.sender, sendingPlayer)
 	local projectile = {
 		t = projectileData.t - player:GetNetworkPing(),
 		origin = projectileData.origin,
 		direction = projectileData.direction,
 		projectileType = projectileData.projectileType,
-		player = projectileData.sender,
+		player = sendingPlayer,
 
 		id = id,
 	}
@@ -79,17 +87,20 @@ function Trojectile:Fire(projectileData: {
 })
 	assert(tConstants.projectileData(projectileData))
 
+	local compressedProjectileType: number = ProjectileTypeSerDes:serialize(projectileData.projectileType) -- saves typing cuz cant convert from string -> number then send it, doesn't like it.
 	onRequest({
 		t = game.Workspace:GetServerTimeNow() + player:GetNetworkPing(),
 		origin = projectileData.origin,
 		direction = projectileData.direction,
-		projectileType = projectileData.projectileType,
-		sender = player,
+		projectileType = compressedProjectileType,
+		sender = PlayerSerDes:serialize(player.Name),
 	})
 
-	-- Communicator:FireServer(projectileData) -- serDes
-
-	clientNetwork.Trojectile_CLIENT.Fire(projectileData)
+	clientNetwork.Trojectile_CLIENT.Fire({
+		origin = projectileData.origin,
+		direction = projectileData.direction,
+		projectileType = compressedProjectileType,
+	})
 end
 
 function Trojectile:addProjectileType(
@@ -115,6 +126,7 @@ function Trojectile:addProjectileType(
 
 	Trojectile._projectileConfigs[name] = config
 
+	-- dont add to the serialization. if the server doesn't  have it it wont serialize
 	return function()
 		Trojectile._projectileConfigs[name] = nil
 	end
@@ -207,16 +219,16 @@ RunService.RenderStepped:Connect(function(dt)
 				)
 			end
 
-			raycastResult = workspace:Raycast(
-				origin,
-				projectile.direction * projectileConfig.speed * totalDt,
-				raycastParams
-			)
+			raycastResult =
+				workspace:Raycast(origin, projectile.direction * projectileConfig.speed * totalDt, raycastParams)
 		end
 
 		projectile.origin = projectilePosition
-		projectiles:set(projectile.id, Position, projectilePosition - (Vector3.yAxis * projectileConfig
-		.dropRate * projectileTravelTime))
+		projectiles:set(
+			projectile.id,
+			Position,
+			projectilePosition - (Vector3.yAxis * projectileConfig.dropRate * projectileTravelTime)
+		)
 
 		if raycastResult and raycastResult.Instance ~= nil then
 			projectileConfig.callback(raycastResult.Instance, raycastResult.Position)

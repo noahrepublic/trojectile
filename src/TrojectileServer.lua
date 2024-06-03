@@ -8,18 +8,19 @@ a rollback system would also be easily achievable with this approach for any pin
 
 --> Services
 
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 --> Includes
 
 local Constants = require(script.Parent.Constants)
+local Identifiers = require(script.Parent.Identifiers)
 local Set = require(script.Parent.Set)
 local tConstants = require(script.Parent.tConstants)
 
 local serverNetwork = require(script.Parent.network.server)
 
 --> Variables
-
 
 local TrojectileServer = {
 	_cooldown = 0,
@@ -30,18 +31,20 @@ local TrojectileServer = {
 
 local projectiles = Set.new()
 
+local PlayerSerDes = Identifiers.new(Constants.PLAYER_ID_STORAGE_NAME)
+local ProjectileTypeSerDes = Identifiers.new(Constants.PROJECTILE_ID_STORAGE_NAME)
+
 --> Functions
-
-
 
 local function onRequest(
 	player,
-	projectileData: { -- TODO: serdes
+	projectileData: {
 		origin: Vector3,
 		direction: Vector3,
-		projectileType: string,
+		projectileType: number,
 	}
 )
+	projectileData.projectileType = ProjectileTypeSerDes:deserialize(projectileData.projectileType)
 	assert(tConstants.projectileData(projectileData))
 
 	local timestamp = game.Workspace:GetServerTimeNow()
@@ -57,7 +60,7 @@ local function onRequest(
 
 	local playerPing = player:GetNetworkPing()
 
-	warn(playerPing, playerPing*1000)
+	warn(playerPing, playerPing * 1000)
 
 	timestamp -= playerPing
 
@@ -72,12 +75,14 @@ local function onRequest(
 
 	projectiles:add(projectile)
 
+	local playerSerID = PlayerSerDes:serialize(player.Name)
+
 	serverNetwork.Trojectile_SERVER.FireExcept(player, {
 		t = timestamp,
 		origin = projectileData.origin,
 		direction = projectileData.direction,
-		projectileType = projectileData.projectileType,
-		sender = player,
+		projectileType = ProjectileTypeSerDes:serialize(projectileData.projectileType),
+		sender = playerSerID,
 	})
 end
 
@@ -110,8 +115,11 @@ function TrojectileServer:addProjectileType(
 
 	TrojectileServer._projectileConfigs[name] = config
 
+	ProjectileTypeSerDes:referenceIdentifier(name)
+
 	return function() -- as far as we need for cleanup, you shouldn't need to have to remove projectile types as you control when to add them
 		TrojectileServer._projectileConfigs[name] = nil
+		ProjectileTypeSerDes:unreferenceIdentifier(name)
 	end
 end
 
@@ -141,30 +149,47 @@ RunService.Heartbeat:Connect(function(dt)
 			continue
 		end
 
-		local origin = projectile.origin - (Vector3.yAxis * 10 * (game.Workspace:GetServerTimeNow() - projectile.timestamp))
+		local origin = projectile.origin
+			- (Vector3.yAxis * 10 * (game.Workspace:GetServerTimeNow() - projectile.timestamp))
 		local newOrigin = projectile.origin + (projectile.direction * projectileConfig.speed * totalDt)
 
 		local projectileType = projectileConfig.type
 
-		local method = if projectileType ~= nil and (projectileType.method == "Spherecast" or projectileType.method == "Blockcast") then projectileType.method else "Raycast" 
+		local method = if projectileType ~= nil
+				and (projectileType.method == "Spherecast" or projectileType.method == "Blockcast")
+			then projectileType.method
+			else "Raycast"
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterDescendantsInstances = { projectile.player.Character }
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		
-		local raycastResult 
-		if projectileType ~= nil and (projectileType.method == "Spherecast" or projectileType.method == "Blockcast") and projectileType.size then
-			raycastResult = workspace[method](workspace, if projectileType.method == "Blockcast" then CFrame.new(origin) else origin, projectileType.size, projectile.direction * projectileConfig.speed * totalDt, raycastParams)
+
+		local raycastResult
+		if
+			projectileType ~= nil
+			and (projectileType.method == "Spherecast" or projectileType.method == "Blockcast")
+			and projectileType.size
+		then
+			raycastResult = workspace[method](
+				workspace,
+				if projectileType.method == "Blockcast" then CFrame.new(origin) else origin,
+				projectileType.size,
+				projectile.direction * projectileConfig.speed * totalDt,
+				raycastParams
+			)
 		else
 			if projectileConfig.method then
-				warn("Projectile type has a method that is not supported by the server, defaulting to use Raycast. Valid methods: Spherecast, or Blockcast")
+				warn(
+					"Projectile type has a method that is not supported by the server, defaulting to use Raycast. Valid methods: Spherecast, or Blockcast"
+				)
 			end
 
-			raycastResult = workspace:Raycast(origin, projectile.direction * projectileConfig.speed * totalDt, raycastParams)
+			raycastResult =
+				workspace:Raycast(origin, projectile.direction * projectileConfig.speed * totalDt, raycastParams)
 		end
- 
+
 		projectile.origin = newOrigin
-		
+
 		if raycastResult ~= nil then
 			print("hit", raycastResult.Instance, raycastResult.Position)
 			--newOrigin = raycastResult.Position
@@ -185,11 +210,17 @@ RunService.Heartbeat:Connect(function(dt)
 				projectiles:remove(projectile)
 			end -- otherwise, keep going until either hit, or done.
 		end
-
-		
 	end
 
 	totalDt = 0
+end)
+
+Players.PlayerAdded:Connect(function(player: Player)
+	PlayerSerDes:referenceIdentifier(player.Name)
+end)
+
+Players.PlayerRemoving:Connect(function(player: Player)
+	PlayerSerDes:unreferenceIdentifier(player.Name)
 end)
 
 return TrojectileServer
